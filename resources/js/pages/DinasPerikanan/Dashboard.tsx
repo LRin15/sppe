@@ -79,6 +79,32 @@ const FilterComponent = ({ filters, onFilterChange }: { filters: Filters; onFilt
 export default function Dashboard({ auth, dataPerikanan, filters }: DashboardPageProps) {
     const [currentFilters, setCurrentFilters] = useState<Filters>(filters);
 
+    // Definisikan urutan indikator yang sama dengan halaman Input
+    const indikatorOrder = [
+        'Penangkapan Di Laut',
+        'Penangkapan di perairan umum',
+        'Budidaya laut (rumput laut)',
+        'Budidaya Tambak (rumput laut)',
+        'Budidaya Tambak (udang)',
+        'Budidaya Tambak (ikan lainnya)',
+        'Budidaya Kolam',
+    ];
+
+    // Fungsi untuk mengurutkan data sesuai dengan urutan yang diinginkan
+    const getSortedData = (data: DataPerikananItem[]) => {
+        return data.sort((a, b) => {
+            const indexA = indikatorOrder.indexOf(a.indikator);
+            const indexB = indikatorOrder.indexOf(b.indikator);
+
+            // Jika indikator tidak ada dalam daftar urutan, letakkan di akhir
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+
+            return indexA - indexB;
+        });
+    };
+
     const handleFilterChange = (key: keyof Filters, value: string) => {
         setCurrentFilters((prevFilters) => ({ ...prevFilters, [key]: value }));
     };
@@ -110,6 +136,9 @@ export default function Dashboard({ auth, dataPerikanan, filters }: DashboardPag
         return () => clearTimeout(timeoutId);
     }, [currentFilters]);
 
+    // Gunakan data yang sudah diurutkan
+    const sortedData = getSortedData(dataPerikanan);
+
     return (
         <AuthenticatedLayout
             user={auth.user}
@@ -133,8 +162,8 @@ export default function Dashboard({ auth, dataPerikanan, filters }: DashboardPag
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 bg-white">
-                            {dataPerikanan.length > 0 ? (
-                                dataPerikanan.map((item) => (
+                            {sortedData.length > 0 ? (
+                                sortedData.map((item) => (
                                     <tr key={item.id}>
                                         <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">{item.indikator}</td>
                                         <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">{item.nilai}</td>
