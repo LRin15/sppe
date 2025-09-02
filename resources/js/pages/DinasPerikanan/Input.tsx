@@ -86,36 +86,14 @@ export default function Input({ auth, formData, filters, indikatorList, success 
         setCurrentFilters((prev) => ({ ...prev, [key]: value }));
     };
 
-    // Update filter state ketika props berubah
     useEffect(() => {
-        setCurrentFilters(filters);
-        setData({
-            tahun: filters.tahun,
-            bulan: filters.bulan,
-            data: formData,
-        });
-    }, [filters, formData]);
-
-    // Handle filter change dengan debounce
-    useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            if (currentFilters.tahun !== filters.tahun || currentFilters.bulan !== filters.bulan) {
-                router.get(
-                    '/dinas-perikanan/input',
-                    {
-                        tahun: currentFilters.tahun,
-                        bulan: currentFilters.bulan,
-                    },
-                    {
-                        preserveState: true,
-                        replace: true,
-                        only: ['formData', 'filters'], // Hanya reload data yang diperlukan
-                    },
-                );
-            }
-        }, 300);
-
-        return () => clearTimeout(timeoutId);
+        if (currentFilters.tahun !== filters.tahun || currentFilters.bulan !== filters.bulan) {
+            // Menggunakan URL langsung tanpa helper route()
+            router.get('/dinas-perikanan/input', currentFilters, {
+                preserveState: true,
+                replace: true,
+            });
+        }
     }, [currentFilters]);
 
     const handleInputChange = (indikator: string, value: string) => {
@@ -127,21 +105,13 @@ export default function Input({ auth, formData, filters, indikatorList, success 
 
     const submit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-
-        // Update data dengan filter terbaru sebelum submit
-        const updatedData = {
+        setData((currentData) => ({
+            ...currentData,
             tahun: currentFilters.tahun,
             bulan: currentFilters.bulan,
-            data: data.data,
-        };
-
-        post('/dinas-perikanan/store', {
-            data: updatedData,
-            onSuccess: () => {
-                // Reload data setelah berhasil menyimpan
-                router.reload({ only: ['formData', 'success'] });
-            },
-        });
+        }));
+        // Menggunakan URL langsung tanpa helper route()
+        post('/dinas-perikanan/store');
     };
 
     return (
@@ -155,18 +125,11 @@ export default function Input({ auth, formData, filters, indikatorList, success 
                 <div className="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <FilterComponent filters={currentFilters} onFilterChange={handleFilterChange} />
 
-                    {(recentlySuccessful || success) && (
+                    {recentlySuccessful && success && (
                         <div className="mb-4 rounded-lg border border-green-400 bg-green-100 px-4 py-3 text-green-700" role="alert">
-                            {success || 'Data berhasil disimpan!'}
+                            {success}
                         </div>
                     )}
-
-                    <div className="mb-4 text-sm text-gray-600">
-                        Menampilkan data untuk:{' '}
-                        <strong>
-                            {currentFilters.bulan} {currentFilters.tahun}
-                        </strong>
-                    </div>
 
                     <form onSubmit={submit}>
                         <div className="overflow-x-auto rounded-lg border">
@@ -192,11 +155,7 @@ export default function Input({ auth, formData, filters, indikatorList, success 
                                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                                     value={data.data[indikator] || ''}
                                                     onChange={(e) => handleInputChange(indikator, e.target.value)}
-                                                    placeholder="0.00"
                                                 />
-                                                {errors[`data.${indikator}`] && (
-                                                    <p className="mt-1 text-sm text-red-600">{errors[`data.${indikator}`]}</p>
-                                                )}
                                             </td>
                                         </tr>
                                     ))}
