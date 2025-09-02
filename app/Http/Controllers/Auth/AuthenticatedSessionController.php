@@ -33,7 +33,8 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Redirect ke dashboard Dinas Perikanan setelah login
+        return redirect()->intended(route('dinas-perikanan.dashboard', absolute: false));
     }
 
     /**
