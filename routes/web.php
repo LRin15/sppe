@@ -3,6 +3,7 @@
 use App\Http\Controllers\DinasPerikananController;
 use App\Http\Controllers\DinasPerikananExportController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
 
 // Root redirect
 Route::get('/', function () {
@@ -12,7 +13,11 @@ Route::get('/', function () {
     return redirect()->route('login');
 })->name('home');
 
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
+    
 // Test route (sementara untuk debugging)
 Route::get('/test', function () {
     return 'Test route working! User: ' . (auth()->check() ? auth()->user()->name : 'Not logged in');

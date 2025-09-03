@@ -30,11 +30,21 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
-
         $request->session()->regenerate();
+        
+        $user = $request->user();
 
-        // Redirect ke dashboard Dinas Perikanan setelah login
-        return redirect()->intended(route('dinas-perikanan.dashboard', absolute: false));
+        // ## MODIFIKASI DI SINI ##
+        // Logikanya disederhanakan.
+        // Jika dinas adalah 'perikanan', arahkan ke dashboard perikanan.
+        // Jika tidak, arahkan ke dashboard sementara yang generik.
+
+        $redirect_url = match ($user->dinas) {
+            'perikanan' => route('dinas-perikanan.dashboard', absolute: false),
+            default => route('dashboard'), // Arahkan ke dashboard sementara
+        };
+
+        return redirect()->intended($redirect_url);
     }
 
     /**
