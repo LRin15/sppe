@@ -1,6 +1,5 @@
 <?php
 
-// app/Http/Controllers/DinasPerikananController.php
 namespace App\Http\Controllers;
 
 use App\Models\DataPerikanan;
@@ -10,7 +9,6 @@ use Illuminate\Support\Facades\Redirect;
 
 class DinasPerikananController extends Controller
 {
-    // Daftar indikator yang tetap
     private $indikatorList = [
         "Penangkapan Di Laut",
         "Penangkapan di perairan umum",
@@ -21,90 +19,67 @@ class DinasPerikananController extends Controller
         "Budidaya Kolam",
     ];
 
-    // Method untuk menampilkan halaman Dashboard
+    // Dashboard
     public function dashboard(Request $request)
     {
-        // Konversi bulan dari bahasa Indonesia ke bahasa Inggris untuk konsistensi
-        $bulanMap = [
-            'Januari' => 'January',
-            'Februari' => 'February',
-            'Maret' => 'March',
-            'April' => 'April',
-            'Mei' => 'May',
-            'Juni' => 'June',
-            'Juli' => 'July',
-            'Agustus' => 'August',
-            'September' => 'September',
-            'Oktober' => 'October',
-            'November' => 'November',
-            'Desember' => 'December'
-        ];
-
-        // Validasi request filter, jika tidak ada, gunakan tahun dan bulan saat ini
         $tahun = $request->input('tahun', date('Y'));
-        $bulanInput = $request->input('bulan', 'Januari'); // Default ke Januari
-        
-        // Konversi ke bahasa Inggris untuk database jika diperlukan
-        $bulanForDatabase = $bulanMap[$bulanInput] ?? $bulanInput;
+        $bulan = $request->input('bulan', 'Januari');
 
-        // Ambil data dari database berdasarkan filter
         $dataPerikanan = DataPerikanan::where('tahun', $tahun)
-            ->where('bulan', $bulanForDatabase)
+            ->where('bulan', $bulan)
             ->get();
 
         return Inertia::render('DinasPerikanan/Dashboard', [
             'dataPerikanan' => $dataPerikanan,
-            'filters' => ['tahun' => $tahun, 'bulan' => $bulanInput],
+            'filters' => ['tahun' => $tahun, 'bulan' => $bulan],
+            'success' => session('success'),
         ]);
     }
 
-    // Method untuk menampilkan halaman Input
+    // Input Page
     public function input(Request $request)
-{
-    $bulanMap = [
-        'Januari' => 'January',
-        'Februari' => 'February',
-        'Maret' => 'March',
-        'April' => 'April',
-        'Mei' => 'May',
-        'Juni' => 'June',
-        'Juli' => 'July',
-        'Agustus' => 'August',
-        'September' => 'September',
-        'Oktober' => 'October',
-        'November' => 'November',
-        'Desember' => 'December'
-    ];
+    {
+        $tahun = $request->input('tahun', date('Y'));
+        $bulan = $request->input('bulan', 'Januari');
 
-    $tahun = $request->input('tahun', date('Y'));
-    $bulanInput = $request->input('bulan', 'Januari');
-    $bulanForDatabase = $bulanMap[$bulanInput] ?? $bulanInput;
+        $existingData = DataPerikanan::where('tahun', $tahun)
+            ->where('bulan', $bulan)
+            ->pluck('nilai', 'indikator');
 
-    // Debug: log filter yang diterima
-    \Log::info('Input filters received:', ['tahun' => $tahun, 'bulan' => $bulanInput, 'bulan_db' => $bulanForDatabase]);
+        $formData = collect($this->indikatorList)->mapWithKeys(function ($indikator) use ($existingData) {
+            return [$indikator => $existingData->get($indikator, '')];
+        });
 
-    // Ambil data yang sudah ada untuk di-edit
-    $existingData = DataPerikanan::where('tahun', $tahun)
-        ->where('bulan', $bulanForDatabase)
-        ->pluck('nilai', 'indikator');
+        return Inertia::render('DinasPerikanan/Input', [
+            'formData' => $formData,
+            'filters' => ['tahun' => $tahun, 'bulan' => $bulan],
+            'indikatorList' => $this->indikatorList,
+            'success' => session('success')
+        ]);
+    }
 
-    \Log::info('Existing data found:', $existingData->toArray());
+    // Edit Page
+    public function edit(Request $request)
+    {
+        $tahun = $request->tahun;
+        $bulan = $request->bulan;
 
-    // Gabungkan data yang ada dengan daftar indikator
-    $formData = collect($this->indikatorList)->mapWithKeys(function ($indikator) use ($existingData) {
-        return [$indikator => $existingData->get($indikator, '')]; // Default ke empty string jika tidak ada
-    });
+        $dataPerikanan = DataPerikanan::where('tahun', $tahun)
+            ->where('bulan', $bulan)
+            ->get()
+            ->keyBy('indikator')
+            ->map(fn($item) => $item->nilai)
+            ->toArray();
 
-    return Inertia::render('DinasPerikanan/Input', [
-        'formData' => $formData,
-        'filters' => ['tahun' => $tahun, 'bulan' => $bulanInput],
-        'indikatorList' => $this->indikatorList,
-        'success' => session('success')
-    ]);
-}
+        return Inertia::render('DinasPerikanan/Edit', [
+            'formData' => $dataPerikanan,
+            'filters' => ['tahun' => $tahun, 'bulan' => $bulan],
+            'indikatorList' => $this->indikatorList,
+        ]);
+    }
 
-    // Method untuk menyimpan atau update data
-    public function store(Request $request)
+    // Store untuk Input → redirect ke Input Page (seperti sebelumnya)
+    public function storeInput(Request $request)
     {
         $request->validate([
             'tahun' => 'required|integer',
@@ -112,37 +87,50 @@ class DinasPerikananController extends Controller
             'data' => 'required|array',
         ]);
 
-        $bulanMap = [
-            'Januari' => 'January',
-            'Februari' => 'February',
-            'Maret' => 'March',
-            'April' => 'April',
-            'Mei' => 'May',
-            'Juni' => 'June',
-            'Juli' => 'July',
-            'Agustus' => 'August',
-            'September' => 'September',
-            'Oktober' => 'October',
-            'November' => 'November',
-            'Desember' => 'December'
-        ];
+        foreach ($request->input('data', []) as $indikator => $nilai) {
+            if ($nilai === null || $nilai === '') continue;
 
-        $bulanForDatabase = $bulanMap[$request->bulan] ?? $request->bulan;
-
-        foreach ($request->data as $indikator => $nilai) {
             DataPerikanan::updateOrCreate(
                 [
                     'tahun' => $request->tahun,
-                    'bulan' => $bulanForDatabase,
+                    'bulan' => $request->bulan,
                     'indikator' => $indikator,
                 ],
-                [
-                    'nilai' => $nilai,
-                ]
+                ['nilai' => $nilai]
             );
         }
 
-        return Redirect::route('dinas-perikanan.input', ['tahun' => $request->tahun, 'bulan' => $request->bulan])
-            ->with('success', 'Data berhasil disimpan!');
+        return Redirect::route('dinas-perikanan.input', [
+            'tahun' => $request->tahun,
+            'bulan' => $request->bulan,
+        ])->with('success', 'Data berhasil disimpan!');
+    }
+
+    // Store untuk Edit → redirect ke Dashboard
+    public function storeEdit(Request $request)
+    {
+        $request->validate([
+            'tahun' => 'required|integer',
+            'bulan' => 'required|string',
+            'data' => 'required|array',
+        ]);
+
+        foreach ($request->input('data', []) as $indikator => $nilai) {
+            if ($nilai === null || $nilai === '') continue;
+
+            DataPerikanan::updateOrCreate(
+                [
+                    'tahun' => $request->tahun,
+                    'bulan' => $request->bulan,
+                    'indikator' => $indikator,
+                ],
+                ['nilai' => $nilai]
+            );
+        }
+
+        return Redirect::route('dinas-perikanan.dashboard', [
+            'tahun' => $request->tahun,
+            'bulan' => $request->bulan,
+        ])->with('success', 'Data berhasil disimpan!');
     }
 }
