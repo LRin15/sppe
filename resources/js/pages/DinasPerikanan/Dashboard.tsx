@@ -1,232 +1,350 @@
 // resources/js/Pages/DinasPerikanan/Dashboard.tsx
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
-import { PageProps } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { ChangeEvent, useEffect, useState } from 'react';
+import { PageProps } from '@/types';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import Select from 'react-select';
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer
+} from 'recharts';
+import {
+    ChartBarIcon,
+    CalendarIcon,
+    DocumentTextIcon,
+} from '@heroicons/react/24/outline';
 
-interface DataPerikananItem {
-    id: number;
-    tahun: number;
-    bulan: string;
-    indikator: string;
-    nilai: string | number;
+interface ChartDataPoint {
+    month: string;
+    [key: string]: string | number;
 }
 
-interface Filters {
-    tahun: string;
-    bulan: string;
-    [key: string]: any;
+interface Props extends PageProps {
+    availableYears: number[];
+    selectedYears: number[];
+    selectedIndicator: string;
+    indikatorList: string[];
+    chartData: ChartDataPoint[];
 }
 
-interface DashboardPageProps extends PageProps {
-    dataPerikanan: DataPerikananItem[];
-    filters: Filters;
-}
+const colors = [
+    '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
+    '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
+    '#F97316', '#6366F1', '#14B8A6', '#F43F5E'
+];
 
-const FilterComponent = ({ filters, onFilterChange }: { filters: Filters; onFilterChange: (key: keyof Filters, value: string) => void }) => {
-    const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const months = [
+    'Januari','Februari','Maret','April','Mei','Juni',
+    'Juli','Agustus','September','Oktober','November','Desember'
+];
 
-    const handleSelectChange = (e: ChangeEvent<HTMLSelectElement>) => {
-        onFilterChange(e.target.name as keyof Filters, e.target.value);
-    };
+export default function Dashboard({
+    auth,
+    availableYears,
+    selectedYears,
+    selectedIndicator,
+    indikatorList,
+    chartData,
+}: Props) {
+    const [localSelectedYears, setLocalSelectedYears] = useState<number[]>([]);
+    const [localSelectedIndicator, setLocalSelectedIndicator] = useState<string>('');
 
-    return (
-        <div className="mb-6">
-            <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6">
-                <h3 className="text-base font-semibold text-gray-800 mb-4">Filter Periode Data</h3>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    <div>
-                        <label htmlFor="tahun" className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
-                        <select
-                            id="tahun"
-                            name="tahun"
-                            value={filters.tahun}
-                            onChange={handleSelectChange}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-                        >
-                            {years.map((year) => (
-                                <option key={year} value={year}>{year}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="bulan" className="block text-sm font-medium text-gray-700 mb-2">Bulan</label>
-                        <select
-                            id="bulan"
-                            name="bulan"
-                            value={filters.bulan}
-                            onChange={handleSelectChange}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
-                        >
-                            {months.map((month) => (
-                                <option key={month} value={month}>{month}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
+    // tabel
+    const [tableData, setTableData] = useState<any[]>([]);
+    const [filterIndicators, setFilterIndicators] = useState<string[]>([]);
+    const [filterYears, setFilterYears] = useState<number[]>([]);
+    const [filterMonths, setFilterMonths] = useState<string[]>([]);
 
-const ActionButtons = ({ filters, data }: { filters: Filters; data: DataPerikananItem[] }) => {
-    const [showExportMenu, setShowExportMenu] = useState(false);
+    useEffect(() => {
+        setLocalSelectedYears(selectedYears || []);
+        setLocalSelectedIndicator(selectedIndicator || '');
+    }, []);
 
-    const handleExport = (format: string) => {
-        const params = new URLSearchParams({ tahun: filters.tahun, bulan: filters.bulan, format });
-        window.location.href = `/dinas-perikanan/export?${params.toString()}`;
-        setShowExportMenu(false);
-    };
+    useEffect(() => {
+        if (!localSelectedIndicator || localSelectedYears.length === 0) return;
 
-    const handleEdit = () => {
-        router.get('/dinas-perikanan/edit', 
-            { tahun: filters.tahun, bulan: filters.bulan },
-            {
+        const debounce = setTimeout(() => {
+            router.get('/dinas-perikanan/dashboard', {
+                years: localSelectedYears,
+                indicator: localSelectedIndicator,
+            }, {
                 preserveState: true,
+                preserveScroll: true,
                 replace: true,
-                only: ['formData', 'filters', 'indikatorList']
+            });
+        }, 500);
+
+        return () => clearTimeout(debounce);
+    }, [localSelectedYears, localSelectedIndicator]);
+
+    // fetch tabel data setiap filter berubah
+    useEffect(() => {
+        axios.get('/dinas-perikanan/table-data', {
+            params: {
+                indicators: filterIndicators,
+                years: filterYears,
+                months: filterMonths,
             }
+        }).then(res => setTableData(res.data));
+    }, [filterIndicators, filterYears, filterMonths]);
+
+    const formatNumber = (value: number) => new Intl.NumberFormat('id-ID').format(value);
+
+    const hasChartData = () => {
+        if (!chartData || chartData.length === 0) return false;
+        return chartData.some(dataPoint =>
+            selectedYears.some(year => {
+                const value = dataPoint[year.toString()];
+                return value !== undefined && value !== 0;
+            })
         );
     };
 
-    return (
-        <div className="mb-6 bg-white rounded-2xl shadow-md border border-gray-200 p-6 flex justify-end gap-3 relative">
-            {/* Tombol Edit Data */}
-            <button
-                onClick={handleEdit}
-                disabled={data.length === 0}
-                className="px-5 py-3 rounded-xl font-semibold text-sm text-white bg-yellow-600 hover:bg-yellow-700 shadow-md transition disabled:opacity-50"
-            >
-                Edit Data
-            </button>
-
-            {/* Tombol Export */}
-            <div className="relative">
-                <button
-                    onClick={() => setShowExportMenu(!showExportMenu)}
-                    disabled={data.length === 0}
-                    className="px-5 py-3 rounded-xl font-semibold text-sm text-white bg-green-600 hover:bg-green-700 shadow-md transition disabled:opacity-50"
-                >
-                    Export
-                </button>
-
-                {showExportMenu && (
-                    <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-200 z-10">
-                        <button
-                            onClick={() => handleExport('csv')}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-xl"
-                        >
-                            Export CSV
-                        </button>
-                        <button
-                            onClick={() => handleExport('xlsx')}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-xl"
-                        >
-                            Export XLSX
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-export default function Dashboard({ auth, dataPerikanan, filters }: DashboardPageProps) {
-    const [currentFilters, setCurrentFilters] = useState<Filters>(filters);
-
-    const indikatorOrder = [
-        'Penangkapan Di Laut',
-        'Penangkapan di perairan umum',
-        'Budidaya laut (rumput laut)',
-        'Budidaya Tambak (rumput laut)',
-        'Budidaya Tambak (udang)',
-        'Budidaya Tambak (ikan lainnya)',
-        'Budidaya Kolam',
-    ];
-
-    const getSortedData = (data: DataPerikananItem[]) =>
-        data.sort((a, b) => {
-            const indexA = indikatorOrder.indexOf(a.indikator);
-            const indexB = indikatorOrder.indexOf(b.indikator);
-            if (indexA === -1 && indexB === -1) return 0;
-            if (indexA === -1) return 1;
-            if (indexB === -1) return -1;
-            return indexA - indexB;
-        });
-
-    const handleFilterChange = (key: keyof Filters, value: string) => {
-        setCurrentFilters((prev) => ({ ...prev, [key]: value }));
+    // Custom styles untuk react-select
+    const selectStyles = {
+        control: (provided: any) => ({
+            ...provided,
+            borderRadius: '12px',
+            border: '2px solid #e5e7eb',
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+            minHeight: '44px',
+            '&:hover': {
+                border: '2px solid #d1d5db'
+            },
+            '&:focus-within': {
+                border: '2px solid #3b82f6',
+                boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)'
+            }
+        }),
+        multiValue: (provided: any) => ({
+            ...provided,
+            backgroundColor: '#dbeafe',
+            borderRadius: '6px'
+        }),
+        multiValueLabel: (provided: any) => ({
+            ...provided,
+            color: '#1e40af',
+            fontSize: '13px'
+        }),
+        multiValueRemove: (provided: any) => ({
+            ...provided,
+            color: '#1e40af',
+            ':hover': {
+                backgroundColor: '#bfdbfe',
+                color: '#1e3a8a'
+            }
+        }),
+        placeholder: (provided: any) => ({
+            ...provided,
+            color: '#9ca3af'
+        })
     };
 
-    useEffect(() => setCurrentFilters(filters), [filters]);
-
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            if (currentFilters.tahun !== filters.tahun || currentFilters.bulan !== filters.bulan) {
-                router.get('/dinas-perikanan/dashboard', currentFilters, {
-                    preserveState: true,
-                    replace: true,
-                    only: ['dataPerikanan', 'filters'],
-                });
-            }
-        }, 300);
-        return () => clearTimeout(timeout);
-    }, [currentFilters]);
-
-    const sortedData = getSortedData(dataPerikanan);
-
     return (
-        <AuthenticatedLayout
-            user={auth.user}
-            header={<h2 className="text-lg leading-tight font-bold text-gray-800">Dashboard Perikanan</h2>}
-        >
-            <Head title="Dashboard Perikanan" />
+        <AuthenticatedLayout user={auth.user}>
+            <Head title="Dashboard - Dinas Perikanan" />
 
-            <div className="min-h-screen bg-white -m-6 p-6">
-                <div className="mx-auto max-w-5xl">
-                    <FilterComponent filters={currentFilters} onFilterChange={handleFilterChange} />
-                    <ActionButtons filters={currentFilters} data={sortedData} />
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 -m-6 p-6">
+                <div className="space-y-6">
 
-                    <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
-                        <div className="bg-gray-800 p-6">
-                            <h3 className="text-lg font-bold text-white">Data Perikanan</h3>
-                            <p className="text-gray-300 mt-2 text-sm">
-                                Periode: <span className="font-semibold text-blue-300">{currentFilters.bulan} {currentFilters.tahun}</span>
-                            </p>
+                    {/* Container Filter + Grafik */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center mb-6">
+                            <CalendarIcon className="h-6 w-6 mr-3 text-gray-600" />
+                            <h2 className="text-l font-semibold text-gray-900">Grafik Indikator</h2>
                         </div>
 
-                        <div className="overflow-hidden">
-                            <table className="min-w-full">
-                                <thead>
-                                    <tr className="bg-gray-700">
-                                        <th className="w-2/3 px-8 py-4 text-left text-xs font-bold tracking-wider text-white uppercase">
-                                            Indikator
-                                        </th>
-                                        <th className="w-1/3 px-8 py-4 text-left text-xs font-bold tracking-wider text-white uppercase">
-                                            Jumlah (Ton)
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {sortedData.length > 0 ? (
-                                        sortedData.map((item) => (
-                                            <tr key={item.id} className="hover:bg-gray-50 transition">
-                                                <td className="px-8 py-4 text-sm font-medium text-gray-900">{item.indikator}</td>
-                                                <td className="px-8 py-4 text-sm text-right text-gray-600 font-medium">{item.nilai}</td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={2} className="px-8 py-6 text-center text-sm text-gray-500">
-                                                Data tidak ditemukan untuk periode {filters.bulan} {filters.tahun}.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                            {/* Tahun */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+                                <select
+                                    value={localSelectedYears[0] ?? ""}
+                                    onChange={(e) => {
+                                        const yearNum = parseInt(e.target.value);
+                                        setLocalSelectedYears(yearNum ? [yearNum] : []);
+                                    }}
+                                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                                >
+                                    <option value="">-- Pilih Tahun --</option>
+                                    {availableYears.map((year) => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Indikator */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Indikator</label>
+                                <select
+                                    value={localSelectedIndicator}
+                                    onChange={(e) => setLocalSelectedIndicator(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                                >
+                                    <option value="">-- Pilih Indikator --</option>
+                                    {indikatorList.map((indicator) => (
+                                        <option key={indicator} value={indicator}>{indicator}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
+
+                        {/* Grafik */}
+                        <div className="bg-gray-50 rounded-xl p-4">
+                            {!selectedIndicator ? (
+                                <div className="h-96 flex items-center justify-center text-gray-500">
+                                    <div className="text-center">
+                                        <ChartBarIcon className="h-20 w-20 mx-auto mb-4 text-gray-300" />
+                                        <div className="text-xl font-medium">Pilih Indikator</div>
+                                        <div className="text-base text-gray-400">Pilih indikator di atas untuk melihat grafik trend</div>
+                                    </div>
+                                </div>
+                            ) : hasChartData() ? (
+                                <div className="h-96">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={chartData}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis 
+                                                dataKey="month" 
+                                                tick={{ fontSize: 12 }} 
+                                                stroke="#666" 
+                                                angle={-45} 
+                                                textAnchor="end" 
+                                                height={80} 
+                                            />
+                                            <YAxis 
+                                                tick={{ fontSize: 12 }} 
+                                                stroke="#666" 
+                                                tickFormatter={(value) => formatNumber(value)} 
+                                            />
+                                            <Tooltip formatter={(value: any, name: string) => [formatNumber(Number(value)), `Tahun ${name}`]} />
+                                            <Legend />
+                                            {selectedYears.map((year, index) => (
+                                                <Line 
+                                                    key={year} 
+                                                    type="monotone" 
+                                                    dataKey={year.toString()} 
+                                                    stroke={colors[index % colors.length]} 
+                                                    strokeWidth={3} 
+                                                />
+                                            ))}
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div className="h-96 flex items-center justify-center text-gray-500">
+                                    <div className="text-center">
+                                        <DocumentTextIcon className="h-20 w-20 mx-auto mb-4 text-gray-300" />
+                                        <div className="text-xl font-medium">Tidak ada data</div>
+                                        <div className="text-base text-gray-400">Data untuk "{selectedIndicator}" di tahun {selectedYears.join(', ')} tidak tersedia</div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Filter + Tabel Data */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center mb-6">
+                            <DocumentTextIcon className="h-6 w-6 mr-3 text-gray-600" />
+                            <h2 className="text-l font-semibold text-gray-900">Tabel Indikator</h2>
+                        </div>
+
+                        {/* Filter Tabel */}
+                        <div className="mb-6">
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                                {/* Indikator */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Indikator</label>
+                                    <Select
+                                        isMulti
+                                        placeholder="Pilih indikator..."
+                                        options={indikatorList.map(ind => ({ value: ind, label: ind }))}
+                                        value={filterIndicators.map(ind => ({ value: ind, label: ind }))}
+                                        onChange={(selected) => setFilterIndicators(selected?.map(s => s.value) || [])}
+                                        styles={selectStyles}
+                                        className="text-sm"
+                                        maxMenuHeight={200}
+                                    />
+                                </div>
+                                
+                                {/* Tahun */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+                                    <Select
+                                        isMulti
+                                        placeholder="Pilih tahun..."
+                                        options={availableYears.map(y => ({ value: y, label: y.toString() }))}
+                                        value={filterYears.map(y => ({ value: y, label: y.toString() }))}
+                                        onChange={(selected) => setFilterYears(selected?.map(s => Number(s.value)) || [])}
+                                        styles={selectStyles}
+                                        className="text-sm"
+                                        maxMenuHeight={200}
+                                    />
+                                </div>
+                                
+                                {/* Bulan */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Bulan</label>
+                                    <Select
+                                        isMulti
+                                        placeholder="Pilih bulan..."
+                                        options={months.map(m => ({ value: m, label: m }))}
+                                        value={filterMonths.map(m => ({ value: m, label: m }))}
+                                        onChange={(selected) => setFilterMonths(selected?.map(s => s.value) || [])}
+                                        styles={selectStyles}
+                                        className="text-sm"
+                                        maxMenuHeight={200}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Tabel Data */}
+                        <div className="max-w-full overflow-x-auto border rounded-lg">
+                        <table className="table-auto min-w-[1000px] border-collapse text-sm">
+                            <thead className="bg-slate-800">
+                            <tr>
+                                <th className="border px-3 py-2 text-center text-white">Indikator</th>
+                                <th className="border px-3 py-2 text-center text-white">Tahun</th>
+                                {months.map((bulan) => (
+                                <th key={bulan} className="border px-3 py-2 text-center text-white">{bulan}</th>
+                                ))}
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {tableData.length > 0 ? (
+                                tableData.map((row, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                    <td className="border px-3 py-2">{row.indikator}</td>
+                                    <td className="border px-3 py-2 text-center">{row.tahun}</td>
+                                    {months.map((bulan) => (
+                                    <td key={bulan} className="border px-3 py-2 text-right">
+                                        {row[bulan] ? formatNumber(row[bulan]) : '-'}
+                                    </td>
+                                    ))}
+                                </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                <td colSpan={14} className="text-center text-gray-500 py-4">
+                                    Tidak ada data
+                                </td>
+                                </tr>
+                            )}
+                            </tbody>
+                        </table>
+                        </div>
+
+
                     </div>
                 </div>
             </div>

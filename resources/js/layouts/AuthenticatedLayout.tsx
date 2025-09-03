@@ -51,6 +51,13 @@ export default function Authenticated({
                         active={window.location.pathname === '/dinas-perikanan/dashboard'}
                     >
                         <HomeIcon className="mr-3 h-5 w-5" />
+                        Dashboard
+                    </NavLink>
+                    <NavLink
+                        href="/dinas-perikanan/data"
+                        active={window.location.pathname === '/dinas-perikanan/data'}
+                    >
+                        <HomeIcon className="mr-3 h-5 w-5" />
                         Data
                     </NavLink>
                     <NavLink

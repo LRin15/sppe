@@ -17,7 +17,6 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
-    
 // Test route (sementara untuk debugging)
 Route::get('/test', function () {
     return 'Test route working! User: ' . (auth()->check() ? auth()->user()->name : 'Not logged in');
@@ -37,15 +36,25 @@ Route::middleware(['auth', 'verified'])
             return 'Dinas perikanan group working! User: ' . auth()->user()->name;
         });
 
-        Route::get('input', [DinasPerikananController::class, 'input'])->name('input');
+        // Dashboard dengan chart dan filter
         Route::get('dashboard', [DinasPerikananController::class, 'dashboard'])->name('dashboard');
+
+        // Data viewing page
+        Route::get('data', [DinasPerikananController::class, 'data'])->name('data');
+
+        // Input data page
+        Route::get('input', [DinasPerikananController::class, 'input'])->name('input');
         Route::post('store', [DinasPerikananController::class, 'storeInput'])->name('store');
-        Route::get('export', [DinasPerikananExportController::class, 'export'])->name('export');
+
+        // Edit data page
         Route::get('edit', [DinasPerikananController::class, 'edit'])->name('edit');
         Route::post('store-edit', [DinasPerikananController::class, 'storeEdit'])->name('store-edit');
+
+        // Export functionality
+        Route::get('export', [DinasPerikananExportController::class, 'export'])->name('export');
+
+        Route::get('table-data', [DinasPerikananController::class, 'getTableData']);
     });
-
-
 
 // Include auth routes
 require __DIR__ . '/auth.php';
