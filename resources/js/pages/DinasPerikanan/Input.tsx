@@ -4,6 +4,13 @@ import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { PageProps } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import {
+    ChartBarIcon,
+    CalendarIcon,
+    DocumentTextIcon,
+    EyeIcon,
+    ClockIcon
+} from '@heroicons/react/24/outline';
 
 // Definisi Tipe Data
 interface Filters {
@@ -34,8 +41,9 @@ const FilterComponent = ({ filters, onFilterChange }: { filters: Filters; onFilt
     return (
         <div className="mb-8">
             <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
-                <div className="flex items-center mb-4">
-                    <h3 className="text-base font-semibold text-gray-800">Filter Periode Data</h3>
+                <div className="flex items-center mb-6">
+                    <CalendarIcon className="h-6 w-6 mr-3 text-gray-600" />
+                    <h2 className="text-l font-semibold text-gray-900">Filter Periode Data</h2>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
