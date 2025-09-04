@@ -8,8 +8,15 @@ use App\Http\Controllers\DashboardController;
 // Root redirect
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect('/dinas-perikanan/dashboard');
+        $user = auth()->user();
+        
+        // Arahkan berdasarkan dinas pengguna, sama seperti logika login
+        return match ($user->dinas) {
+            'perikanan' => redirect()->route('dinas-perikanan.dashboard'),
+            default => redirect()->route('dashboard'),
+        };
     }
+
     return redirect()->route('login');
 })->name('home');
 
@@ -27,7 +34,7 @@ Route::get('/test-auth', function () {
 })->middleware('auth');
 
 // Dinas Perikanan routes
-Route::middleware(['auth', 'verified'])
+Route::middleware(['auth', 'verified', 'dinas.check:perikanan'])
     ->prefix('dinas-perikanan')
     ->name('dinas-perikanan.')
     ->group(function () {

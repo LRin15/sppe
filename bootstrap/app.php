@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // TAMBAHKAN BLOK INI untuk mendaftarkan alias
+        $middleware->alias([
+            'dinas.check' => \App\Http\Middleware\CheckDinas::class,
+        ]);
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
